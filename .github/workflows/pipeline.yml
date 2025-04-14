@@ -9,7 +9,7 @@ jobs:
   # Each job run in an isolated environment
   compile:
     # Where your job would run. ubuntu-latest: shared runner provided by GitHub
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
     - # actions = create a local copy of the code
@@ -21,6 +21,6 @@ jobs:
         distribution: 'temurin'
         cache: maven
     - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      run: mvn compile
 
    
