@@ -23,6 +23,7 @@ jobs:
     - name: Build with Maven
       run: mvn compile
 
+
   security-checks:
     runs-on: self-hosted
     # Run job after compile is completed
@@ -49,6 +50,7 @@ jobs:
     - name: Gitleaks code scan
       run: gitleaks detect source . -r gitleaks-report.json -f json
 
+
   test:
     runs-on: self-hosted
     needs: security-checks
@@ -65,6 +67,7 @@ jobs:
     - name: Unit test cases
       run: mvn test
 
+
   build_project_and_sonarscan:
     runs-on: self-hosted
     needs: test
@@ -77,9 +80,18 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-        
+
+    # Created jar artifacts
     - name: Build project
       run: mvn package
+
+    # To be used in building docker
+    # Based on your Dockerfile
+    - name: Upload JAR artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-jar
+        path: target/*.jar       
 
     # why is there 2 'uses'?
     - uses: actions/checkout@v4
@@ -108,6 +120,44 @@ jobs:
     # The possible outputs of the `quality-gate-status` variable are `PASSED`, `WARN` or `FAILED`.
     - name: "SonarQube Quality Gate Status value"
       run: echo "The Quality Gate status is ${{ steps.sonarqube-quality-gate-check.outputs.quality-gate-status }}"
+
+
+  # On runner vm, install docker -> set docker group -> exit runner vm and enter again to apply changes
+  build_docker_image_and_push:
+    runs-on: self-hosted
+    needs: build_project_and_sonarscan
+    steps:
+    - uses: actions/checkout@v4   
+
+    # Based on yout Dockerfile
+    - name: Download JAR artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: app-jar
+        path: app  # this will download JAR to ./app folder
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ vars.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build and push
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        tags: devopsdee/GC-Bank:latest
+   
+
+
       
 
    
+
